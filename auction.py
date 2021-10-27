@@ -66,7 +66,116 @@ class Auction(Session):
         return res['IACMainStatusData']
 
 
-    def getPd1(self, keyword="",page=0,limit=20,StatusCode="", time=10):
+    def getProduct_V2_100(self, page=0):
+        keyword = ""
+        limit = 100
+        StatusCode = ""
+        time=10        
+
+        url = 'https://www.esmplus.com/Sell/SingleGoodsMng/GetSingleGoodsList'
+        headers = dict()
+        headers['Referer'] = 'https://www.esmplus.com/Sell/SingleGoodsMng?menuCode=TDM396'
+        data = dict()
+        params = dict()
+        params["keyword"] = keyword
+        params["StatusCode"] = StatusCode # ""전체 / 11:판매가능 / 21:판매중지 / 22:판매불가 / 31:SKU품절 / 01:등록대기
+        params["SellPeriod"] = "" # 판매종료
+        params["StockQty"] = -1 # 재고 / -1:전체 / 0:재고없음 / 99999:재고있음 / 
+        params["SiteId"] = "0"
+        params["CategorySiteId"] = "-1"
+        params["CategoryCode"] = ""
+        params["CategoryLevel"] = ""
+        params["TransPolicyNo"] = "0"
+        params["SearchDateType"] = "0"
+        params["SearchStartDate"] = ""
+        params["SearchEndDate"] = ""
+        params["SellerId"] = ""
+        params["SellerSiteId"] = ""
+        params["DiscountUseIs"] = "-1"
+        params["DeliveryFeeApplyType"] = "0"
+        params["OptAddDeliveryType"] = "0"
+        params["OptSelUseIs"] = "-1"
+        params["PremiumEnd"] = "0"
+        params["PremiumPlusEnd"] = "0"
+        params["FocusEnd"] = "0"
+        params["FocusPlusEnd"] = "0"
+        params["GoodsIdType"] = "S"
+        params["GoodsIds"] = ""
+        params["ShopCateReg"] = "-1"
+        params["IsTPLUse"] = ""
+        params["SellMinPrice"] = "0"
+        params["SellMaxPrice"] = "0"
+        params["OrderByType"] = "11"
+        params["GroupOrderByType"] = "1"
+        params["IsGroupUse"] = ""
+        params["IsApplyEpin"] = ""
+        params["IsConvertSingleGoods"] = ""
+
+        data['paramsData'] = f"{params}"
+        data['page']=page
+        data['start']='1'
+        data['limit']=limit
+        data['group'] = '[{"property":"SingleGoodsNo","direction":"ASC"}]'
+
+        res = self.post(url,data=data,headers=headers, timeout = time).json()
+        return res
+
+    def getProduct_V1_100(self, page=0):
+        keyword = ""
+        limit = 100
+        StatusCode = ""
+        time=10
+
+        url = 'https://www.esmplus.com/Sell/Items/GetItemMngList?_dc=1630915626578'
+        headers = dict()
+        headers['Referer'] = 'https://www.esmplus.com/Sell/Items/ItemsMng?menuCode=TDM100'
+
+        data = dict()
+        params = dict()
+        params["keyword"] = keyword
+        params["SiteId"] = "0"
+        params["SellType"] = "0"
+        params["CategoryCode"] = ""
+        params["CustCategoryCode"] = "0"
+        params["TransPolicyNo"] = "0"
+        params["StatusCode"] = StatusCode
+        params["SearchDateType"] = "0"
+        params["StartDate"] = ""
+        params["EndDate"] = ""
+        params["SellerId"] = ""
+        params["StockQty"] = "-1"
+        params["SellPeriod"] = "0"
+        params["DeliveryFeeApplyType"] = "0"
+        params["OptAddDeliveryType"] = "0"
+        params["SellMinPrice"] = "0"
+        params["SellMaxPrice"] = "0"
+        params["OptSelUseIs"] = "-1"
+        params["PremiumEnd"] = "0"
+        params["PremiumPlusEnd"] = "0"
+        params["FocusEnd"] = "0"
+        params["FocusPlusEnd"] = "0"
+        params["GoodsIds"] = ""
+        params["SellMngCode"] = ""
+        params["OrderByType"] = "11"
+        params["NotiItemReg"] = "-1"
+        params["EpinMatch"] = "-1"
+        params["UserEvaluate"] = ""
+        params["SearchClause"] = ""
+        params["ScoreRange"] = "0"
+        params["ShopCateReg"] = "-1"
+        params["IsTPLUse"] = ""
+        params["GoodsName"] = ""
+        params["SdBrandId"] = "0"
+        params["SdBrandName"] = ""
+        data['paramsData'] = f"{params}"
+        data['page']=page
+        data['start']='1'
+        data['limit']=limit
+
+        res = self.post(url,data=data,headers=headers, timeout=time).json()
+        return res
+
+    def getPdv1(self, keyword="",page=0,limit=20,StatusCode="", time=10):
         url = 'https://www.esmplus.com/Sell/Items/GetItemMngList?_dc=1630915626578'
         headers = dict()
         headers['Referer'] = 'https://www.esmplus.com/Sell/Items/ItemsMng?menuCode=TDM100'
@@ -118,7 +227,7 @@ class Auction(Session):
             print(no+1,i['GoodsName'])
         print(res['total'])          
 
-    def getPd2(self, keyword="",page=1,limit=20,StatusCode=11, time=10):
+    def getPdv2(self, keyword="",page=1,limit=20,StatusCode=11, time=10):
         url = 'https://www.esmplus.com/Sell/SingleGoodsMng/GetSingleGoodsList'
         headers = dict()
         headers['Referer'] = 'https://www.esmplus.com/Sell/SingleGoodsMng?menuCode=TDM396'
@@ -240,92 +349,6 @@ class Auction(Session):
             return _date
         else:
             return ''
-
-    def makePdTable(self):
-        conn = sqlite3.connect('ot.db', isolation_level = None)
-        c = conn.cursor()
-
-        # 제품테이블 생성
-        sql = '''
-        create table product( 
-            CategoryCodeIAC text,
-            CategoryLNameIAC text,
-            CategoryMNameIAC text,
-            CategorySNameIAC text,
-            DcTypeIAC integer,
-            DcValueIAC integer,
-            DeliveryFee integer,
-            DispEndDate text,
-            DispStopDateIAC text,
-            GoodsName text,
-            ListImgUrl text,
-            SDCategoryCode text,
-            SDCategoryLevel1Name text,
-            SDCategoryLevel2Name text,
-            SDCategoryLevel3Name text,
-            SDCategoryName text,
-            SellerManageCode text,
-            SingleGoodsNo text,
-            SiteGoodsNoIAC text,
-            SiteRegDate text,
-            SiteUpdDate text,
-            StatusCodeIAC text,
-            StockQty integer,
-            StockQtyManageYn text,
-            TransCloseTimeIac text,
-            TransPolicyNameIac text
-        );
-        '''        
-        c.execute(sql)   
-
-
-    def makePdOldTable(self):
-        conn = sqlite3.connect('ot.db', isolation_level = None)
-        c = conn.cursor()
-
-        # 제품테이블 생성
-        sql = '''
-        create table productOld( 
-            CategoryLName text,
-            CategoryMName text,
-            CategorySName text,
-            DeliveryFee integer,
-            DeliveryFeeApplyType integer,
-            DeliveryType integer,
-            DispEndDate text,
-            DispStartDate text,
-            DisplayLimitYn text,
-            DupExposeYn text,
-            GoodsMasterNo integer,
-            GoodsName text,
-            GoodsNo text,
-            GoodsType integer,
-            IacDcValue integer,
-            IacDcValueType integer,
-            IacPointValue integer,
-            IacPointValueType integer,
-            InsDate text,
-            LastUpd1Date text,
-            LastUpd2Date text,
-            ListImgUrl text,
-            ReadyDurationDay text,
-            SellCnt integer,
-            SellManageCode text,
-            SellPrice integer,
-            SellType integer,
-            SellerId text,
-            SiteCategoryCode text,
-            SiteGoodsNo text,
-            SiteRegDate text,
-            SiteUpdDate text,
-            StatusCode text,
-            StockQty integer,
-            TransCloseTime text,
-            TransPolicyName text,
-            TransType text
-        );
-        '''        
-        c.execute(sql)  
 
 
     def insertDB(self):
@@ -1422,99 +1445,3 @@ class Auction(Session):
         if orderCount != 0:
             print(f'-총주문합계금액: {ACTotalPrice}')
             print(f'-총정산예정금액: {ACTotalSttlExpectedAmnt}')       
-
-########################### 쿠팡 클래스 #################################
-
-class Coupang(Session):
-    def __init__(self) -> None:
-        super().__init__()
-
-        self.headers = {
-            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-        }
-
-    def login(self,id,pw):
-        # id = "rmfrmffla"
-        cid = f'VENDOR,{id}'
-        # pw = 'qw970104@'
-
-        data = {
-            'username': cid,
-            'password': pw,
-        }        
-        res = self.post('https://wing.coupang.com/login', data=data, headers=self.headers)
-        res = self.get('https://wing.coupang.com/', headers=self.headers)
-        redirect_cookie = res.headers['Set-Cookie']
-        headers = {"Cookie": redirect_cookie}
-    
-    def getOrder(self,menu):
-        # 쿠팡 주문(결제/배송)내역
-        today = datetime.today().strftime("%Y-%m-%d")
-        endDate = today
-        sDate = datetime.today() - timedelta(30)
-        startDate = sDate.strftime("%Y-%m-%d")
-
-        deliveryStatus = menu.upper()
-        countPerPage = 50
-        page = 1
-        url = 'https://wing.coupang.com/tenants/sfl-portal/delivery/management/dashboard/search?condition='
-        param = f'{{"nextShipmentBoxId":null,"startDate":"{startDate}","endDate":"{endDate}","deliveryStatus":"{deliveryStatus}","deliveryMethod":null,"detailConditionKey":"NAME","detailConditionValue":null,"selectedComplexConditionKey":null,"countPerPage":{countPerPage},"page":{page},"shipmentType":null}}'
-        param = parse.quote(param)
-        
-        url = url + param
-
-        res = self.get(url, headers=self.headers).json()
-        return res
-
-    def getOrderPD(self):
-        url = 'https://wing.coupang.com/tenants/sfl-portal/delivery/management/dashboard/find-raw-piv-and-inventory-name'
-        self.headers = {
-            'Host': 'wing.coupang.com',
-            'Connection': 'keep-alive',
-            'Content-Length': '85',
-            'Pragma': 'no-cache',
-            'Cache-Control': 'no-cache',
-            'sec-ch-ua': '"Chromium";v="94", "Google Chrome";v="94", ";Not A Brand";v="99"',
-            'Accept': 'application/json',
-            'Content-Type': 'application/json;charset=UTF-8',
-            'sec-ch-ua-mobile': '?0',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.71 Safari/537.36',
-            'sec-ch-ua-platform': '"Windows"',
-            'Origin': 'https://wing.coupang.com',
-            'Sec-Fetch-Site': 'same-origin',
-            'Sec-Fetch-Mode': 'cors',
-            'Sec-Fetch-Dest': 'empty',
-            'Referer': 'https://wing.coupang.com/tenants/sfl-portal/delivery/management?deliverStatus=FINAL_DELIVERY&startDate=2021-09-26&endDate=2021-10-09',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Accept-Language': 'ko,en-US;q=0.9,en;q=0.8,fr;q=0.7'
-            # 'Accept-Language':'ko,en-US;q=0.9,en;q=0.8,fr;q=0.7',
-            # 'Referer' : 'https://wing.coupang.com/tenants/sfl-portal/delivery/management?deliverStatus=FINAL_DELIVERY&startDate=2021-09-26&endDate=2021-10-09',
-            # 'Content-Type':'application/json',
-            # 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.71 Safari/537.36'
-        }
-
-        # payload = {"0":"74514086621", "1":"74514104079", "2":"75137953044", "3":"76800604629", "4":"74514127382", "5":"76306840890", "6":"74661320539"}
-        payload = [('0',74514086621), ('1',74514104079)]
-        # data = [75656023249,75656023653,76854025661,74514035801,75958852713,76983157610,74514107433,76496563838,76541422727,74514067562,76496559307]
-
-        # res = self.post(url, data=data, headers=self.headers).json()
-        res = self.post(url, headers=self.headers, data=payload)
-        return res
-
-
-    def getPd(self,id):
-        url = 'https://wing.coupang.com/tenants/seller-web/vendor-inventory/search'
-        self.headers = {
-            'Accept-Language':'ko,en-US;q=0.9,en;q=0.8,fr;q=0.7',
-            'Content-Type':'application/json',
-            'Referer':'https://wing.coupang.com/vendor-inventory/list'
-        }
-
-        # data = f'{{"searchIds":"{id}","startTime":"2000-01-01","endTime":"2099-12-31"}}'
-        data = dict()
-        data['searchIds'] = id
-        # param = f'{{"searchIds":"{id}","startTime":"2000-01-01","endTime":"2099-12-31","productName":null,"brandName":null,"manufacturerName":null,"productType":"","dateType":"productRegistrationDate","dateRangeShowStyle":true,"dateRange":"all","saleEndDatePeriodType":null,"includeUsedProduct":null,"deleteType":"false","deliveryMethod":null,"shippingType":null,"shipping":null,"otherType":null,"productStatus":["SAVED","WAIT_FOR_SALE","VALID","SOLD_OUT","INVALID","END_FOR_SALE","APPROVING","IN_REVIEW","DENIED","PARTIAL_APPROVED","APPROVED","ALL"],"advanceConditionShow":null,"displayCategoryCodes":[],"currentMenuCode":null,"page":1,"countPerPage":50,"sortField":"vendorInventoryId","desc":true,"fromListV2":true}}'
-        
-        res = self.post(url,headers=self.headers,data=dumps(data)).json()
-        
-        return res

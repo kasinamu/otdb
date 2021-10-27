@@ -1,4 +1,3 @@
-# from sqlite3.dbapi2 import Timestamp
 import pymysql
 from datetime import datetime, timedelta
 import re
@@ -159,13 +158,10 @@ class Database():
                 # orderItems Loop
                 for item in i['orderItems']:
                     goodsNo = item['vendorItemId']
-                    goodsName = item['vendorItemName']
-
-                    m = p.search(goodsName)
-                    index = len(m.group())
-                    goodsCode = m.group().replace(' ','').replace('-','')
-                    goodsName = goodsName[0:len(goodsName)-index]
-
+                    # goodsName = item['vendorItemName']
+                    res = self.goodsSplit(item['vendorItemName'])
+                    goodsCode = res['goodsCode']
+                    goodsName = res['goodsName']
 
                     qty = item['shippingCount']
                     goodsPrice = item['salesPrice']
@@ -205,12 +201,9 @@ class Database():
                 buyerTel1 = i['orderMemberTelNo']
                 goodsNo = i['productNo']
 
-                goodsName = i['productName']
-
-                m = p.search(goodsName)
-                index = len(m.group())
-                goodsCode = m.group().replace(' ','').replace('-','')
-                goodsName = goodsName[0:len(goodsName)-index]
+                res = self.goodsSplit(i['productName'])
+                goodsCode = res['goodsCode']
+                goodsName = res['goodsName']
                 
                 qty = i['orderQuantity']
                 goodsPrice = i['productUnitPrice']
@@ -244,19 +237,10 @@ class Database():
                 buyerID = i['BuyerID']
                 buyerTel1 = i['BuyerCp']
                 goodsNo = i['GoodsNo']
-                goodsName = self.remove_tag(i['GoodsName'])
-                
-                m = p.search(goodsName)
-                if m is None:
-                    goodsCode = ''
-                    goodsName = i['GoodsName']
-                else:
-                    index = len(m.group())
-                    goodsCode = m.group().replace(' ','').replace('-','')
-                    goodsName = goodsName[0:len(goodsName)-index]
 
-
-                # goodsCode = self.remove_tag(i['SellerMngCode'])
+                res = self.goodsSplit(self.remove_tag(i['GoodsName']))
+                goodsCode = res['goodsCode']
+                goodsName = res['goodsName']
 
                 qty = (i['OrderQty'])
                 goodsPrice = self.removeComma(i['SellPrice'])
@@ -346,8 +330,12 @@ class Database():
                 strGoods += f"{good['goodsCode']} {good['qty']}ea"
             # print(f"{rcv} [{r['cnt']}건], {strGoods}")
             ad = r['adress'].split(' ')
-            주소 = f"{ad[0]} {ad[1]} {ad[2]}"
-
+            if len(ad) >= 3:
+                주소 = f"{ad[0]} {ad[1]} {ad[2]}"
+            elif len(ad) >= 2:
+                주소 = f"{ad[0]} {ad[1]}"
+            else:
+                주소 = f"{ad[0]}"
             sql = "insert into orderSummary values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
             cur.execute(sql,(no,r['site'],r['rcverName'],r['cnt'],strGoods,r['orderAmnt'],r['rcverTel1'],r['rcverTel2'],r['zipCode'],주소,r['memo'],r['feeType'],r['feeAmnt'],r['logis']))
             conn.commit()
@@ -435,13 +423,52 @@ class Database():
             return 'Fail'
         
 
-    def insertProduct(self,pd):
-        p = re.compile(r"([-]?)(\s?)[a-zA-Z{1}]\s?\s?[-]?\s?(\d{4,5}$)")
+
+    def goodsSplit(self,goodsName):
+        # 괄호삭제 (1개 혹은 2개의 경우)
+        goodsName = goodsName.replace("중고",'').strip()
+        cnt = goodsName.count('(')
+        if cnt == 2:
+            goodsName = goodsName.replace('(','',1)
+            goodsName = goodsName.replace(')','',1)
+            s = goodsName.find('(')
+            e = goodsName.find(')')
+            str = goodsName[s:e+1]
+            goodsName = goodsName.replace(str,'')
+
+        elif cnt == 1:
+            s = goodsName.find('(')
+            e = goodsName.find(')')
+            goodsName = goodsName.replace(goodsName[s:e+1],'')
+
+        try:
+            p = re.compile('[a-z]\s?[0-9]{4,5}\s?',re.I)
+            res = p.findall(goodsName)
+            i = len(res) - 1
+            goodsCode = res[i]
+            
+            pos = goodsName.find(goodsCode) + len(goodsCode)
+            dif = len(goodsName) - pos
+
+            if i == 0 and dif > 5:
+                goodsCode = ''
+            #코드 분리후 남은 하이픈과 공백제거
+            goodsName = goodsName.replace(goodsCode,'').strip().strip('-').strip()     
+            goodsCode = goodsCode.strip().replace(' ','')
+            data = {'goodsName':goodsName, 'goodsCode':goodsCode}
+        except:
+            data = {'goodsName':goodsName, 'goodsCode':''}
+        
+        return data
+
+
+    def insertProduct_v2(self,pd):
         conn = self.connect()
         cur = conn.cursor()
 
-        acCode = pd['CategoryCodeIAC']
-        Category = pd['CategoryLNameIAC']+">"+pd['CategoryMNameIAC']+">"+pd['CategorySNameIAC']
+        ac2 = pd['CategoryLNameIAC']
+        ac3 = pd['CategoryMNameIAC']
+        ac4 = pd['CategorySNameIAC']
         dcType = pd['DcTypeIAC']
         dcValue = pd['DcValueIAC']
         deliveryFee = pd['DeliveryFee']
@@ -450,22 +477,16 @@ class Database():
         dispStopDate = self.tstamp(pd['DispStopDateIAC'])
         goodsName = pd['GoodsName']
 
-        try:
-            
-            m = p.search(goodsName)
-            index = len(m.group())
-            goodsCode = m.group().replace(' ','').replace('-','')
-            goodsName = goodsName[0:len(goodsName)-index]
-        except:
-            goodsCode = ''
+        # 제품명에서 코드와 상품명 분리
+        res = self.goodsSplit(goodsName)
+        goodsName = res['goodsName']
+        goodsCode = res['goodsCode']
 
         price = pd['SellPriceIAC']
         listImgUrl = pd['ListImgUrl']
-        esmCode = pd['SDCategoryCode']
         esm1 = pd['SDCategoryLevel1Name']
         esm2 = pd['SDCategoryLevel2Name']
         esm3 = pd['SDCategoryLevel3Name']
-        esm4 = pd['SDCategoryLevel4Name']
         esm5 = pd['SDCategoryName']
         mpdNo = pd['SingleGoodsNo']
         pdNo = pd['SiteGoodsNoIAC']
@@ -474,17 +495,66 @@ class Database():
         status = self.getPDStatus(pd['StatusCodeIAC'])
         stockQty = pd['StockQty']
         stockManage = pd['StockQtyManageYn']
-        transCloseTime = pd['TransCloseTimeIac']
         transPolicy = pd['TransPolicyNameIac']
+        transCloseTime = pd['TransCloseTimeIac']
+        
 
         sql = '''
-        Insert into product values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        Insert into products values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         '''
-        data=(mpdNo,goodsName,goodsCode,pdNo,status,price,dcType,dcValue,transPolicy,stockQty,stockManage,ac1,ac2,ac3,esm1,esm2,esm3,esm4,deliveryFee,deliveryTemplateNo,regDate,updDate,dispEndDate,dispStopDate,url)
+        data=(mpdNo,goodsName,goodsCode,pdNo,status,price,dcType,dcValue,transPolicy,transCloseTime,stockQty,stockManage,ac2,ac3,ac4,esm1,esm2,esm3,esm5,deliveryFee,deliveryTemplateNo,regDate,updDate,dispEndDate,dispStopDate,listImgUrl)
 
 
         cur.execute(sql,data)
         conn.commit()
+
+
+    def insertProduct_v1(self,pd):
+        conn = self.connect()
+        cur = conn.cursor()
+
+        ac2 = pd['CategoryLName']
+        ac3 = pd['CategoryMName']
+        ac4 = pd['CategorySName']
+        dcType = pd['IacDcValueType']
+        dcValue = pd['IacDcValue']
+        deliveryFee = pd['DeliveryFee']
+        deliveryTemplateNo = ''
+        dispEndDate = self.tstamp(pd['DispEndDate'])
+        dispStopDate = self.tstamp(pd['DispEndDate'])
+
+        # 제품명에서 코드와 상품명 분리
+        res = self.goodsSplit(pd['GoodsName'])
+        goodsName = res['goodsName']
+        goodsCode = res['goodsCode']
+
+        price = pd['SellPrice']
+        listImgUrl = pd['ListImgUrl']
+        esm1 = ''
+        esm2 = ''
+        esm3 = ''
+        esm5 = ''
+        mpdNo = pd['GoodsNo']
+        pdNo = pd['SiteGoodsNo']
+        regDate = self.tstamp(pd['SiteRegDate'])
+        updDate = self.tstamp(pd['SiteUpdDate'])
+        status = self.getPDStatus(pd['StatusCode'])
+        stockQty = pd['StockQty']
+        stockManage = ''
+        transPolicy = pd['TransPolicyName']
+        transCloseTime = pd['TransCloseTime']
+        
+
+        sql = '''
+        Insert into products values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        '''
+        data=(mpdNo,goodsName,goodsCode,pdNo,status,price,dcType,dcValue,transPolicy,transCloseTime,stockQty,stockManage,ac2,ac3,ac4,esm1,esm2,esm3,esm5,deliveryFee,deliveryTemplateNo,regDate,updDate,dispEndDate,dispStopDate,listImgUrl)
+
+
+        cur.execute(sql,data)
+        conn.commit()
+
+
 
     # 상품 status를 입력받아 한글로 돌려줌
     def getPDStatus(self,status):
@@ -507,7 +577,7 @@ class Database():
         cur = conn.cursor()
 
         sql = '''
-        CREATE TABLE IF NOT EXISTS product(
+        CREATE TABLE IF NOT EXISTS products(
             mpdNo varchar(20),
             goodsName varchar(100),
             goodsCode varchar(7),
@@ -537,6 +607,51 @@ class Database():
         '''        
         cur.execute(sql)
         conn.commit()
+
+
+
+    # 옥션 신버전(2.0) 상품전체 가져와서 DB에 인서트
+    def insertAllProduct_V2(self):
+        from auction import Auction
+        ac = Auction()
+        
+        pdno = 1
+        for p in range(1,100):
+            res = ac.getProduct_V2_100(p) # 구상품
+            cnt = len(res['data'])
+            n=1
+            for i in res['data']:
+                print(pdno, i['SiteGoodsNoIAC'], i['GoodsName'])
+                print(i,"\n\n")
+                self.insertProduct_v2(i) # v.1 구상품
+                pdno +=1
+                n+=1
+                
+                # 종료캐치
+                if cnt != 100 and (n-1)==cnt:
+                    break
+
+
+    # 옥션 구버전 상품전체 가져와서 DB에 인서트
+    def insertAllProduct_V1(self):
+        from auction import Auction
+        ac = Auction()
+        
+        pdno = 1
+        for p in range(1,100):
+            res = ac.getProduct_V1_100(p) # 구상품
+            cnt = len(res['data'])
+            n=1
+            for i in res['data']:
+                print(pdno, i['SiteGoodsNo'], i['GoodsName'])
+                print(i,"\n\n")
+                self.insertProduct_v1(i) # v.1 구상품
+                pdno +=1
+                n+=1
+                
+                # 종료캐치
+                if cnt != 100 and (n-1)==cnt:
+                    break
 
 
     def orderSummaryPrint(self,mode=''):
@@ -576,13 +691,10 @@ class Database():
 
                 # 택배비추출 / 옥션이면 제품테이블에서 상품배송비를 긁어온다.
                 if row['site'] == '옥션':
-                    sql = "select deliveryFee from product where pdNo=%s"
+                    sql = "select deliveryFee from products where pdNo=%s"
                     cur.execute(sql,row['goodsNo'])
                     i = cur.fetchone()
                     if i is None: #상품이 1.0등록
-                        배송비 = ''
-
-                    if i['deliveryFee'] is None:
                         배송비 = ''
                     else:
                         배송비 = i['deliveryFee']

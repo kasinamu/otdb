@@ -118,7 +118,7 @@ quit()
 
 #     # 택배비추출 / 옥션이면 제품테이블에서 상품배송비를 긁어온다.
 #     if row['site'] == '옥션':
-#         sql = "select deliveryFee from product where pdNo=%s"
+#         sql = "select deliveryFee from products where pdNo=%s"
 #         cur.execute(sql,row['goodsNo'])
 #         i = cur.fetchone()
 
