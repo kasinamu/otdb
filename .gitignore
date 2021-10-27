@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+*.dll
+*.exe
+*.7z
+*.zip
+*.jpg
+*.png
