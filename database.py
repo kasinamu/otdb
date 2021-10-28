@@ -3,15 +3,17 @@ from datetime import datetime, timedelta
 import re
 
 
-
 class Database():
     def __init__ (self):
         conn = None
         cur = None
         sql = ""
-        # self.host = '211.54.212.66'
-        self.host = '127.0.0.1'
+        self.host = '211.54.212.66'
+        # self.host = '127.0.0.1'
         # self.host = '192.168.0.102'
+        self.user = 'pc01'
+        self.pw = 'qw970104'
+
         self.user = 'kasinamu'
         self.pw = 'dew30217'
         self.db = 'otdb'
@@ -64,6 +66,17 @@ class Database():
             return 0
         else:
             return res[0]
+
+    def excuteRow(self,sql,dict=False):
+        conn = self.connect()
+        if dict == False:
+            cur = conn.cursor()
+        else:
+            cur = conn.cursor(pymysql.cursors.DictCursor)
+        cur.execute(sql)
+        res = cur.fetchall()
+        conn.close()
+        return res
 
     def cpGetStatus(self,status):
         if status == 'ACCEPT':
@@ -125,6 +138,22 @@ class Database():
         conn.commit()
         conn.close()
         
+    def excuteDict(self,sql):
+        conn = self.connect()
+        cur = conn.cursor()        
+        cur.execute(sql)
+        i = cur.fetchone()
+        conn.commit()
+        conn.close()
+        return i[0]
+
+    def checkNewOrder(self,orderNo):
+        res = self.excuteDict(f'select count(*)as cnt from temp_orderlist where orderNo={orderNo}')
+        # print(res)
+        if res == 0:
+            return "확인필요"
+        elif res == 1:
+            return "확인완료"
 
 
     def insertOrder(self,shop,menu,data):
@@ -137,10 +166,9 @@ class Database():
                 site = "쿠팡"
                 status = self.cpGetStatus(i['status'])
                 orderNo = i['orderId']
+                check = self.checkNewOrder(orderNo)
                 orderDate = i['orderedAt']
                 rcverName = i['receiver']['name']
-                
-                               
                 serviceFee = 0
                 settleAmnt = 0
                 rcverTel1 =  self.convertNull(i['receiver']['safeNumber'])
@@ -168,7 +196,7 @@ class Database():
                     orderAmnt = item['orderPrice']
                     goodsDc = item['discountPrice']
 
-                    sql = f"({no},'{site}','{status}','{orderNo}','{orderDate}','{rcverName}','{goodsNo}','{goodsName}','{goodsCode}',{qty},{goodsPrice},{orderAmnt},{goodsDc},{serviceFee},{settleAmnt},'{rcverTel1}','{rcverTel2}','{zipCode}','{adress}','{memo}','{feeType}',{feeAmnt},'{logis}','{buyerName}','{buyerID}','{buyerTel1}'),\n"
+                    sql = f"({no},'{check}','{site}','{status}','{orderNo}','{orderDate}','{rcverName}','{goodsNo}','{goodsName}','{goodsCode}',{qty},{goodsPrice},{orderAmnt},{goodsDc},{serviceFee},{settleAmnt},'{rcverTel1}','{rcverTel2}','{zipCode}','{adress}','{memo}','{feeType}',{feeAmnt},'{logis}','{buyerName}','{buyerID}','{buyerTel1}'),\n"
                     sqlContent += sql
                     no += 1
 
@@ -176,6 +204,9 @@ class Database():
                 site = "네이버"
                 status = self.naGetStatus(i['orderStatus'])
                 orderNo = i['orderNo']
+
+                check = self.checkNewOrder(orderNo)
+
                 if status == '배송완료':
                     orderDate = self.tstamp(i['payDateTime'])
                     memo = ''
@@ -210,7 +241,7 @@ class Database():
                 orderAmnt = i['productPayAmt']
                 goodsDc = int(i['totalDiscountAmt']) + int(i['sellerDiscountAmt'])
 
-                sql = f"({no},'{site}','{status}','{orderNo}','{orderDate}','{rcverName}','{goodsNo}','{goodsName}','{goodsCode}',{qty},{goodsPrice},{orderAmnt},{goodsDc},{serviceFee},{settleAmnt},'{rcverTel1}','{rcverTel2}','{zipCode}','{adress}','{memo}','{feeType}',{feeAmnt},'{logis}','{buyerName}','{buyerID}','{buyerTel1}'),\n"
+                sql = f"({no},'{check}','{site}','{status}','{orderNo}','{orderDate}','{rcverName}','{goodsNo}','{goodsName}','{goodsCode}',{qty},{goodsPrice},{orderAmnt},{goodsDc},{serviceFee},{settleAmnt},'{rcverTel1}','{rcverTel2}','{zipCode}','{adress}','{memo}','{feeType}',{feeAmnt},'{logis}','{buyerName}','{buyerID}','{buyerTel1}'),\n"
                 sqlContent += sql
                 no += 1                 
 
@@ -220,6 +251,8 @@ class Database():
                 site = "옥션"
                 status = menu
                 orderNo = i['OrderNo']
+                check = self.checkNewOrder(orderNo)
+
                 orderDate = i['OrderDate']
                 rcverName = i['RcverName']
                 
@@ -247,10 +280,12 @@ class Database():
                 orderAmnt = self.removeComma(i['OrderAmnt'])
                 goodsDc = self.getACDC('옥션',i['SellerCouponDcAmnt'],i['SellerPointDcAmnt'])
 
-                sql = f"({no},'{site}','{status}','{orderNo}','{orderDate}','{rcverName}','{goodsNo}','{goodsName}','{goodsCode}',{qty},{goodsPrice},{orderAmnt},{goodsDc},{serviceFee},{settleAmnt},'{rcverTel1}','{rcverTel2}','{zipCode}','{adress}','{memo}','{feeType}',{feeAmnt},'{logis}','{buyerName}','{buyerID}','{buyerTel1}'),\n"
+                sql = f"({no},'{check}','{site}','{status}','{orderNo}','{orderDate}','{rcverName}','{goodsNo}','{goodsName}','{goodsCode}',{qty},{goodsPrice},{orderAmnt},{goodsDc},{serviceFee},{settleAmnt},'{rcverTel1}','{rcverTel2}','{zipCode}','{adress}','{memo}','{feeType}',{feeAmnt},'{logis}','{buyerName}','{buyerID}','{buyerTel1}'),\n"
                 sqlContent += sql
                 # print(sql)
-                no += 1                         
+                no += 1
+
+
         sql = f"insert into {table} values" + sqlContent[0:len(sqlContent)-2]
         self.excute(sql)
 
@@ -388,6 +423,7 @@ class Database():
             sql = f'''
                 CREATE TABLE IF NOT EXISTS {table}(
                     no int not null,
+                    check varchar(10),
                     site varchar(10) not null,
                     status varchar(20) not null,
                     orderNo varchar(20) not null,
@@ -653,8 +689,110 @@ class Database():
                 if cnt != 100 and (n-1)==cnt:
                     break
 
+    def orderFindItem(self):
+        conn = self.connect()
+        cur = conn.cursor()
 
-    def orderSummaryPrint(self,mode=''):
+        sql = f'''
+        select rcverName, count(*)as cnt, rcverTel1, sum(orderAmnt)as Amnt, site, goodsNo,goodsCode,goodsName,goodsPrice,qty from orderlist group
+        by rcverName, adress, rcverTel1 order by No Desc
+        '''
+        cur = conn.cursor(pymysql.cursors.DictCursor)
+        cur.execute(sql)
+        rows = cur.fetchall()
+        no = 1
+        for row in rows:
+            name = row['rcverName']
+            cnt = row['cnt']
+            t1 = row['rcverTel1']
+            site = row['site']
+            goodsNo = row['goodsNo']
+
+            print("\n")
+            print(f"No.{str(no).zfill(2)} / {site} / {cnt}건 / {name}")
+            sql = "select goodsCode,goodsName,qty from orderlist where rcverName=%s and rcverTel1=%s"
+            cur = conn.cursor(pymysql.cursors.DictCursor)
+            cur.execute(sql,(name,t1))
+            items = cur.fetchall()
+            n = 1
+            for i in items:
+                goods = i['goodsName']
+                code = i['goodsCode']
+                qty = i['qty']
+                print(f"-{str(n).zfill(2)} / {code} / {qty}ea / {goods}")
+                n+=1
+            no+=1
+            
+
+
+
+
+
+    def orderSummaryPost(self):
+        conn = self.connect()
+        cur = conn.cursor()
+
+        sql = f'''
+        select rcverName, rcverTel1, rcverTel2, zipCode, adress, memo, feeType, feeAmnt, site, goodsNo from orderlist group
+        by rcverName, adress, rcverTel1 order by feeType Desc, No Desc
+        '''
+        cur = conn.cursor(pymysql.cursors.DictCursor)
+        cur.execute(sql)
+        rows = cur.fetchall()
+
+        ######### 주문정보 루프
+        for row in rows:
+            name = row['rcverName']
+            t1 = row['rcverTel1']
+            t2 = row['rcverTel2']
+            zip = row['zipCode']
+            adress = row['adress']
+            memo = row['memo']
+            site = row['site']
+            fee = row['feeAmnt']
+
+            print("\n")
+            print(f"수취인: {name}")
+            
+            if t1 != t2:
+                print(f"전화: {t1} 전화2: {t2}")
+            else:
+                print(f"전화: {t1}")                
+
+            print(f"우편번호: {zip}")
+            print(f"주소: {adress}")
+            if memo != '':
+                print(f"배송메모: {memo}")
+
+            # 택배비추출 / 옥션이면 제품테이블에서 상품배송비를 긁어온다.
+            if site == '옥션':
+                sql = "select deliveryFee from products where pdNo=%s"
+                cur.execute(sql,row['goodsNo'])
+                i = cur.fetchone()
+                if i is None: #상품이 1.0등록
+                    fee = ''
+                else:
+                    fee = i['deliveryFee']
+            else:
+                fee = row['feeAmnt']
+
+            if fee == 4500:
+                fee = 4000
+            fee = format(fee,',')
+            
+
+            # 묶음배송 선불확인
+            sql = "select count(feetype)as cnt from orderlist where rcverName=%s and rcverTel1=%s and feeType=%s"
+            cur.execute(sql,(name,t1,'선불'))
+            var = cur.fetchone()
+            if var['cnt'] != 0:
+                print(f"택배: 선불({fee})")
+            else:
+                print(f"택배: 착불")
+
+
+
+    def orderSummaryPrint(self):
         conn = self.connect()
         cur = conn.cursor()
 
@@ -666,64 +804,57 @@ class Database():
         cur.execute(sql)
         rows = cur.fetchall()
 
-        if mode != 'check':
-            print('\n\n')
-
         ######### 주문정보 루프
+        no = 1
         for row in rows:
-            print("="*60)
-            print(f"수취인: {row['rcverName']}")
+            rcv = row['rcverName']
+            tel = row['rcverTel1']
+            adress = row['adress']
+            zip = row['zipCode']
+            memo = row['memo']
+            site = row['site']
+            pdNo = row['goodsNo']
+            cnt = row['cnt']
+            amnt = format(row['Amnt'],',')
+
+            print("\n")
             
-            if mode != 'check':
-                # 전화 1,2가 같으면 1개만 출력
-                if row['rcverTel2'] == '':
-                    print(f"휴대폰: {row['rcverTel1']}")
+            # 택배비추출 / 옥션이면 제품테이블에서 상품배송비를 긁어온다.
+            if site == '옥션':
+                sql = "select deliveryFee from products where pdNo=%s"
+                cur.execute(sql,pdNo)
+                i = cur.fetchone()
+                if i is None: #상품이 1.0등록
+                    배송비 = ''
                 else:
-                    if row['rcverTel2'] == row['rcverTel1']:
-                        print(f"전화: {row['rcverTel1']}")
-                    else:
-                        print(f"전화: {row['rcverTel1']} 전화2: {row['rcverTel2']}")
+                    배송비 = i['deliveryFee']
+            else:
+                배송비 = row['feeAmnt']
 
-                print(f"우편번호: {row['zipCode']}")
-                print(f"주소: {row['adress']}")
-                if row['memo'] != '':
-                    print("배송메모: "+row['memo'])
+            # 묶음배송 선불확인
+            sql = "select count(feetype)as cnt from orderlist where rcverName=%s and rcverTel1=%s and feeType=%s"
+            cur.execute(sql,(rcv,tel,'선불'))
+            var = cur.fetchone()
+            if var['cnt'] != 0:
+                배송구분 = f"선불({배송비})"
+            else:
+                배송구분 = "착불"
 
-                # 택배비추출 / 옥션이면 제품테이블에서 상품배송비를 긁어온다.
-                if row['site'] == '옥션':
-                    sql = "select deliveryFee from products where pdNo=%s"
-                    cur.execute(sql,row['goodsNo'])
-                    i = cur.fetchone()
-                    if i is None: #상품이 1.0등록
-                        배송비 = ''
-                    else:
-                        배송비 = i['deliveryFee']
-                else:
-                    배송비 = row['feeAmnt']
+            print(f"No.{str(no).zfill(2)} | {rcv} | {tel} | {배송구분}")
+            print(f"우){zip} / {adress}")
+            if row['memo'] != '':
+                print(f"메모: {memo}")
 
-                # 묶음배송 선불확인
-                sql = "select count(feetype)as cnt from orderlist where rcverName=%s and rcverTel1=%s and feeType=%s"
-                cur.execute(sql,(row['rcverName'],row['rcverTel1'],'선불'))
-                var = cur.fetchone()
-                if var['cnt'] != 0:
-                    print(f"택배: 선불 / 배송비: {배송비}")
-                else:
-                    print(f"택배: 착불")
+            print(f"{site} {cnt}건 / 주문합계: {amnt}원")
 
-            if mode == "Full" or mode == "check":
-                print(f"{row['site']} / 주문건수: {str(row['cnt'])} / 주문합계: {str(row['Amnt'])}")
-                # 제품코드,제품명, 수취정보
-                sql = 'select goodsCode, qty, orderAmnt, goodsName from orderlist where rcverName = %s'
-                cur.execute(sql,row['rcverName'])
-                goods = cur.fetchall()
-                for g in goods:
-                    if mode == 'check':
-                        print(f"{g['goodsCode']} {g['qty']}ea / {g['goodsName']}")
-                    else:
-                        print("코드: "+g['goodsCode'],"수량: "+str(g['qty']),"주문금액: "+str(g['orderAmnt']),"상품명: "+g['goodsName'])
-
-                if mode != 'check':
-                    print('\n')
+            # 제품코드,제품명, 수취정보
+            sql = 'select goodsCode, qty, orderAmnt, goodsName from orderlist where rcverName = %s'
+            cur.execute(sql,rcv)
+            goods = cur.fetchall()
+            for g in goods:
+                print(f"-- {g['goodsCode']} {g['qty']}ea {format(g['orderAmnt'],',')}원 / {g['goodsName']}")
+            
+            no+=1
 
 
         ############# 요약정보 표시
@@ -731,6 +862,16 @@ class Database():
         cur = conn.cursor(pymysql.cursors.DictCursor)
         sqlsum = "select sum(orderAmnt)as 주문합계 from orderlist" 
         sqlcnt = "select count(*)as cnt from orderlist"
+        
+        sqlplusship = "select count(*)as cnt from orderlist group by rcverName"
+        cur.execute(sqlplusship)
+        cnt = cur.fetchall()
+        plusship = 0
+        for c in cnt:
+            if int(c['cnt']) > 1:
+                plusship += 1
+
+
         cur.execute(sqlcnt)
         cnt = cur.fetchone()
         cur.execute(sqlsum)
@@ -742,6 +883,8 @@ class Database():
 
         print('\n')
         print('='*60)
+
+        print(f"단일포장 {no-plusship-1}건 / 묶음포장 {plusship}건 / 전체포장수 {no-1}건 / ")
         if sitecnt == 1:
             print(f"{site[0][0]}:{site[0][1]}건 / 총주문건수:{cnt['cnt']}건 / 총주문합계:{bb}원")
         elif sitecnt == 2:
@@ -750,4 +893,10 @@ class Database():
             print(f"{site[0][0]}:{site[0][1]}건 / {site[1][0]}:{site[1][1]}건 / {site[2][0]}:{site[2][1]}건 / 총주문건수:{cnt['cnt']}건 / 총주문합계:{bb}원")
 
 
-   
+
+    def makePayOrderTempTable(self):
+        self.excute("truncate temp_orderlist")
+        self.excute("insert into temp_orderlist select * from orderlist")
+
+
+
